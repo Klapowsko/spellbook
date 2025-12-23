@@ -55,9 +55,6 @@ func NewApp() (*App, error) {
 func (a *App) Run() error {
 	addr := fmt.Sprintf(":%s", a.Config.Port)
 	log.Printf("Servidor Spellbook iniciado na porta %s", a.Config.Port)
-	log.Printf("Health check: http://localhost%s/health", addr)
-	log.Printf("API disponível em: http://localhost%s/roadmap e http://localhost%s/topics", addr, addr)
 
 	return a.Router.Run(addr)
 }
-
