@@ -7,15 +7,15 @@ services:
       dockerfile: Dockerfile
     container_name: spellbook-api
     ports:
-      - "${PORT:-8080}:8080"
+      - "${PORT:-8082}:8082"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - PORT=${PORT:-8080}
+      - PORT=${PORT:-8082}
     env_file:
       - .env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
       interval: 30s
       timeout: 3s
       retries: 3
