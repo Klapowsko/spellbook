@@ -11,9 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/spellbook/spellbook/internal/models"
+	"github.com/spellbook/spellbook/internal/services"
 )
 
 // MockGeminiService é um mock do GeminiService para testes
+// Garantir que implementa a interface GeminiServiceInterface
+var _ services.GeminiServiceInterface = (*MockGeminiService)(nil)
+
 type MockGeminiService struct {
 	mock.Mock
 }

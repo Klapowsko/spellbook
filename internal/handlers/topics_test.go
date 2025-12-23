@@ -8,12 +8,17 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spellbook/spellbook/internal/models"
+	"github.com/spellbook/spellbook/internal/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/spellbook/spellbook/internal/models"
 )
 
 // MockGeminiServiceTopics é um mock do GeminiService para testes de topics
+// Garantir que implementa a interface GeminiServiceInterface
+// Esta verificação garante em tempo de compilação que o mock implementa a interface
+var _ services.GeminiServiceInterface = (*MockGeminiServiceTopics)(nil)
+
 type MockGeminiServiceTopics struct {
 	mock.Mock
 }
@@ -38,7 +43,7 @@ func TestTopicsHandler_GenerateTopics_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(MockGeminiServiceTopics)
-	handler := &TopicsHandler{GeminiService: mockService}
+	handler := NewTopicsHandler(mockService)
 
 	expectedTopics := &models.TopicsResponse{
 		Subject: "Python",
@@ -73,7 +78,7 @@ func TestTopicsHandler_GenerateTopics_EmptySubject(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(MockGeminiServiceTopics)
-	handler := &TopicsHandler{GeminiService: mockService}
+	handler := NewTopicsHandler(mockService)
 
 	router := gin.New()
 	router.POST("/topics", handler.GenerateTopics)
@@ -94,7 +99,7 @@ func TestTopicsHandler_GenerateTopics_DefaultCount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(MockGeminiServiceTopics)
-	handler := &TopicsHandler{GeminiService: mockService}
+	handler := NewTopicsHandler(mockService)
 
 	expectedTopics := &models.TopicsResponse{
 		Subject: "JavaScript",
@@ -119,4 +124,3 @@ func TestTopicsHandler_GenerateTopics_DefaultCount(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	mockService.AssertExpectations(t)
 }
-
