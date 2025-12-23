@@ -12,16 +12,16 @@ build: ## Constrói a imagem Docker
 	@docker build -t $(DOCKER_IMAGE) .
 
 up: ## Inicia serviços com docker-compose
-	@docker-compose up -d
+	@docker compose up -d
 
 down: ## Para serviços do docker-compose
-	@docker-compose down
+	@docker compose down
 
 logs: ## Mostra logs do docker-compose
-	@docker-compose logs -f
+	@docker compose logs -f
 
 restart: ## Reinicia serviços do docker-compose
-	@docker-compose restart
+	@docker compose restart
 
 test: ## Executa testes dentro do container
-	@docker-compose exec spellbook go test -v ./...
+	@docker compose exec spellbook go test -v ./...
