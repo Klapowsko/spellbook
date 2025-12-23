@@ -11,7 +11,14 @@ help: ## Mostra esta mensagem de ajuda
 build: ## Constrói a imagem Docker
 	@docker build -t $(DOCKER_IMAGE) .
 
+rebuild: ## Reconstrói a imagem Docker sem cache
+	@docker build --no-cache -t $(DOCKER_IMAGE) .
+
 up: ## Inicia serviços com docker-compose
+	@docker compose up -d
+
+up-build: ## Reconstrói e inicia serviços (força rebuild sem cache)
+	@docker compose build --no-cache
 	@docker compose up -d
 
 down: ## Para serviços do docker-compose
