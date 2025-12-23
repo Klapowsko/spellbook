@@ -25,5 +25,6 @@ func SetupRoutes(router *gin.Engine, roadmapHandler *handlers.RoadmapHandler, to
 		api.POST("/roadmap", roadmapHandler.GenerateRoadmap)
 		api.POST("/topics", topicsHandler.GenerateTopics)
 		api.POST("/educational-roadmap", roadmapHandler.GenerateEducationalRoadmap)
+		api.POST("/educational-trail", roadmapHandler.GenerateEducationalTrail)
 	}
 }

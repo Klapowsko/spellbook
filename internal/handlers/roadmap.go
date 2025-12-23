@@ -93,3 +93,39 @@ func (h *RoadmapHandler) GenerateEducationalRoadmap(c *gin.Context) {
 
 	c.JSON(http.StatusOK, educationalRoadmap)
 }
+
+// GenerateEducationalTrail gera uma trilha educacional estruturada
+func (h *RoadmapHandler) GenerateEducationalTrail(c *gin.Context) {
+	var req models.EducationalTrailRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "tópico é obrigatório",
+		})
+		return
+	}
+
+	if req.Topic == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "tópico não pode ser vazio",
+		})
+		return
+	}
+
+	trail, err := h.GeminiService.GenerateEducationalTrail(req.Topic)
+	if err != nil {
+		if err.Error() == "GEMINI_API_KEY não configurada. Configure no arquivo .env ou variável de ambiente" {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "API key do Gemini não configurada",
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, trail)
+}

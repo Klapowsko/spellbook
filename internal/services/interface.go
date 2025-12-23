@@ -8,5 +8,6 @@ type GeminiServiceInterface interface {
 	GenerateRoadmap(topic string) (*models.Roadmap, error)
 	GenerateTopics(subject string, count int) (*models.TopicsResponse, error)
 	GenerateEducationalRoadmap(topic string) (*models.EducationalRoadmap, error)
+	GenerateEducationalTrail(topic string) (*models.EducationalTrail, error)
 }
 

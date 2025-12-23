@@ -501,3 +501,174 @@ IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto a
 
 	return nil, fmt.Errorf("erro ao gerar roadmap educacional: nenhum modelo disponível funcionou")
 }
+
+// GenerateEducationalTrail gera uma trilha educacional estruturada em dias/etapas
+func (s *GeminiService) GenerateEducationalTrail(topic string) (*models.EducationalTrail, error) {
+	if topic == "" {
+		return nil, fmt.Errorf("tópico não pode ser vazio")
+	}
+
+	// Listar modelos disponíveis
+	availableModels, _ := s.listAvailableModels()
+
+	modelsToTry := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, model := range availableModels {
+		modelsToTry = append(modelsToTry, model)
+		seen[model] = true
+	}
+
+	fallbacks := []string{
+		"gemini-1.5-flash-latest",
+		"gemini-1.5-pro-latest",
+		"gemini-pro",
+		"gemini-1.5-flash",
+		"gemini-1.5-pro",
+	}
+
+	for _, model := range fallbacks {
+		if !seen[model] {
+			modelsToTry = append(modelsToTry, model)
+		}
+	}
+
+	// Prompt para gerar trilha educacional estruturada
+	prompt := fmt.Sprintf(`Você é um especialista em criar trilhas de aprendizado estruturadas e progressivas.
+
+Crie uma trilha educacional completa e bem organizada sobre: "%s"
+
+A trilha deve ser organizada em DIAS/ETAPAS, onde cada dia tem atividades específicas e progressivas. 
+Organize os recursos (livros, cursos, vídeos, artigos, projetos) em uma sequência lógica de aprendizado.
+
+O roadmap deve ser retornado APENAS como um JSON válido, sem markdown, sem texto adicional, seguindo EXATAMENTE esta estrutura:
+
+{
+  "topic": "%s",
+  "total_days": 14,
+  "description": "Descrição geral da trilha",
+  "resources": {
+    "livro_clean_code": {
+      "title": "Clean Code",
+      "description": "Descrição",
+      "author": "Robert C. Martin",
+      "chapters": ["Capítulo 1", "Capítulo 2", ...],
+      "url": "URL (opcional)"
+    },
+    "video_solid_principles": {
+      "title": "SOLID Principles Explained",
+      "description": "Descrição",
+      "duration": "30 min",
+      "url": "URL"
+    }
+  },
+  "steps": [
+    {
+      "day": 1,
+      "title": "Dia 1: Fundamentos e Introdução",
+      "description": "Neste dia você vai aprender os conceitos básicos...",
+      "activities": [
+        {
+          "type": "read_chapters",
+          "resource_id": "livro_clean_code",
+          "title": "Ler capítulos 1-3 do livro Clean Code",
+          "description": "Foque em entender os princípios de código limpo",
+          "chapters": ["Capítulo 1: Código Limpo", "Capítulo 2: Nomes Significativos", "Capítulo 3: Funções"],
+          "progress": "3 de 17 capítulos"
+        },
+        {
+          "type": "watch_video",
+          "resource_id": "video_solid_principles",
+          "title": "Assistir vídeo sobre SOLID",
+          "description": "Entenda os 5 princípios SOLID",
+          "duration": "30 min",
+          "url": "URL do vídeo"
+        },
+        {
+          "type": "read_article",
+          "resource_id": "artigo_refactoring",
+          "title": "Ler artigo sobre Refactoring",
+          "description": "Aprenda técnicas de refatoração",
+          "url": "URL do artigo"
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "title": "Dia 2: Aprofundamento",
+      "description": "Continue aprendendo...",
+      "activities": [...]
+    }
+  ]
+}
+
+Tipos de atividades disponíveis:
+- "read_book": Ler um livro completo
+- "read_chapters": Ler capítulos específicos de um livro
+- "watch_video": Assistir um vídeo
+- "read_article": Ler um artigo
+- "take_course": Fazer um curso (pode ser dividido em partes)
+- "do_project": Fazer um projeto prático
+
+Requisitos IMPORTANTES:
+- Crie uma trilha de 10-21 dias (dependendo da complexidade do tópico)
+- Cada dia deve ter 2-4 atividades bem definidas
+- Organize de forma progressiva: do básico ao avançado
+- Distribua os recursos ao longo dos dias de forma equilibrada
+- Para livros, divida em capítulos ao longo de vários dias
+- Para cursos, divida em módulos/aulas
+- Projetos devem vir no final ou distribuídos conforme o aprendizado
+- Seja específico: "Ler capítulos 1-3" ao invés de "Ler livro"
+- Inclua progresso: "3 de 17 capítulos", "50%% do curso", etc
+- Cada atividade deve ter uma descrição clara do que fazer
+- Use resource_id para referenciar recursos no objeto "resources"
+
+Exemplo de distribuição:
+- Dias 1-5: Fundamentos (leituras iniciais, vídeos introdutórios)
+- Dias 6-10: Aprofundamento (mais capítulos, artigos técnicos)
+- Dias 11-15: Prática (projetos, exercícios)
+- Dias 16+: Consolidação (revisão, projetos finais)
+
+Retorne APENAS o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, topic, topic)
+
+	var lastError error
+
+	for _, modelName := range modelsToTry {
+		text, err := s.generateContent(modelName, prompt)
+		if err != nil {
+			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "quota") {
+				time.Sleep(30 * time.Second)
+				text, err = s.generateContent(modelName, prompt)
+				if err != nil {
+					lastError = err
+					continue
+				}
+			} else {
+				lastError = err
+				continue
+			}
+		}
+
+		jsonText := cleanJSONText(text)
+
+		var trail models.EducationalTrail
+		if err := json.Unmarshal([]byte(jsonText), &trail); err != nil {
+			lastError = fmt.Errorf("erro ao fazer parse do JSON: %v", err)
+			continue
+		}
+
+		// Validar estrutura básica
+		if trail.Topic == "" || len(trail.Steps) == 0 {
+			lastError = fmt.Errorf("resposta do Gemini não está no formato esperado")
+			continue
+		}
+
+		return &trail, nil
+	}
+
+	if lastError != nil {
+		return nil, fmt.Errorf("erro ao gerar trilha educacional: %v", lastError)
+	}
+
+	return nil, fmt.Errorf("erro ao gerar trilha educacional: nenhum modelo disponível funcionou")
+}
