@@ -25,7 +25,7 @@ func NewGeminiService(apiKey string) *GeminiService {
 	return &GeminiService{
 		APIKey: apiKey,
 		HTTPClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: 180 * time.Second, // 3 minutos para trilhas educacionais complexas
 		},
 		BaseURL: "https://generativelanguage.googleapis.com/v1beta",
 	}
@@ -533,103 +533,47 @@ func (s *GeminiService) GenerateEducationalTrail(topic string) (*models.Educatio
 		}
 	}
 
-	// Prompt para gerar trilha educacional estruturada
-	prompt := fmt.Sprintf(`Você é um especialista em criar trilhas de aprendizado estruturadas e progressivas.
+	// Prompt para gerar trilha educacional estruturada (otimizado para ser mais rápido)
+	prompt := fmt.Sprintf(`Crie uma trilha educacional de 10-14 dias sobre: "%s"
 
-Crie uma trilha educacional completa e bem organizada sobre: "%s"
-
-A trilha deve ser organizada em DIAS/ETAPAS, onde cada dia tem atividades específicas e progressivas. 
-Organize os recursos (livros, cursos, vídeos, artigos, projetos) em uma sequência lógica de aprendizado.
-
-O roadmap deve ser retornado APENAS como um JSON válido, sem markdown, sem texto adicional, seguindo EXATAMENTE esta estrutura:
+Retorne APENAS JSON válido, sem markdown:
 
 {
   "topic": "%s",
-  "total_days": 14,
-  "description": "Descrição geral da trilha",
+  "total_days": 12,
+  "description": "Trilha de aprendizado progressiva",
   "resources": {
-    "livro_clean_code": {
-      "title": "Clean Code",
-      "description": "Descrição",
-      "author": "Robert C. Martin",
-      "chapters": ["Capítulo 1", "Capítulo 2", ...],
-      "url": "URL (opcional)"
-    },
-    "video_solid_principles": {
-      "title": "SOLID Principles Explained",
-      "description": "Descrição",
-      "duration": "30 min",
-      "url": "URL"
-    }
+    "recurso_1": {"title": "Nome", "description": "Desc", "author": "Autor", "chapters": ["Cap 1"], "url": ""},
+    "recurso_2": {"title": "Vídeo", "duration": "30 min", "url": ""}
   },
   "steps": [
     {
       "day": 1,
-      "title": "Dia 1: Fundamentos e Introdução",
-      "description": "Neste dia você vai aprender os conceitos básicos...",
+      "title": "Dia 1: Título",
+      "description": "O que será aprendido",
       "activities": [
         {
           "type": "read_chapters",
-          "resource_id": "livro_clean_code",
-          "title": "Ler capítulos 1-3 do livro Clean Code",
-          "description": "Foque em entender os princípios de código limpo",
-          "chapters": ["Capítulo 1: Código Limpo", "Capítulo 2: Nomes Significativos", "Capítulo 3: Funções"],
-          "progress": "3 de 17 capítulos"
-        },
-        {
-          "type": "watch_video",
-          "resource_id": "video_solid_principles",
-          "title": "Assistir vídeo sobre SOLID",
-          "description": "Entenda os 5 princípios SOLID",
-          "duration": "30 min",
-          "url": "URL do vídeo"
-        },
-        {
-          "type": "read_article",
-          "resource_id": "artigo_refactoring",
-          "title": "Ler artigo sobre Refactoring",
-          "description": "Aprenda técnicas de refatoração",
-          "url": "URL do artigo"
+          "resource_id": "recurso_1",
+          "title": "Ler capítulos 1-3",
+          "description": "Foque em...",
+          "chapters": ["Cap 1", "Cap 2"],
+          "progress": "3 de 10 capítulos"
         }
       ]
-    },
-    {
-      "day": 2,
-      "title": "Dia 2: Aprofundamento",
-      "description": "Continue aprendendo...",
-      "activities": [...]
     }
   ]
 }
 
-Tipos de atividades disponíveis:
-- "read_book": Ler um livro completo
-- "read_chapters": Ler capítulos específicos de um livro
-- "watch_video": Assistir um vídeo
-- "read_article": Ler um artigo
-- "take_course": Fazer um curso (pode ser dividido em partes)
-- "do_project": Fazer um projeto prático
+Regras:
+- 10-14 dias, 2-3 atividades por dia
+- Tipos: read_chapters, watch_video, read_article, take_course, do_project
+- Progressivo: básico → avançado → prática
+- Seja específico: "Ler capítulos 1-3" não "Ler livro"
+- Inclua progresso quando relevante
+- Projetos no final
 
-Requisitos IMPORTANTES:
-- Crie uma trilha de 10-21 dias (dependendo da complexidade do tópico)
-- Cada dia deve ter 2-4 atividades bem definidas
-- Organize de forma progressiva: do básico ao avançado
-- Distribua os recursos ao longo dos dias de forma equilibrada
-- Para livros, divida em capítulos ao longo de vários dias
-- Para cursos, divida em módulos/aulas
-- Projetos devem vir no final ou distribuídos conforme o aprendizado
-- Seja específico: "Ler capítulos 1-3" ao invés de "Ler livro"
-- Inclua progresso: "3 de 17 capítulos", "50%% do curso", etc
-- Cada atividade deve ter uma descrição clara do que fazer
-- Use resource_id para referenciar recursos no objeto "resources"
-
-Exemplo de distribuição:
-- Dias 1-5: Fundamentos (leituras iniciais, vídeos introdutórios)
-- Dias 6-10: Aprofundamento (mais capítulos, artigos técnicos)
-- Dias 11-15: Prática (projetos, exercícios)
-- Dias 16+: Consolidação (revisão, projetos finais)
-
-Retorne APENAS o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, topic, topic)
+APENAS JSON, sem markdown.`, topic, topic)
 
 	var lastError error
 
