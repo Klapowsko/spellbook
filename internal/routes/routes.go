@@ -26,10 +26,4 @@ func SetupRoutes(router *gin.Engine, roadmapHandler *handlers.RoadmapHandler, to
 		api.POST("/topics", topicsHandler.GenerateTopics)
 		api.POST("/educational-roadmap", roadmapHandler.GenerateEducationalRoadmap)
 	}
-
-	// Rotas sem prefixo /api/v1 (para compatibilidade)
-	router.POST("/roadmap", roadmapHandler.GenerateRoadmap)
-	router.POST("/topics", topicsHandler.GenerateTopics)
-	router.POST("/educational-roadmap", roadmapHandler.GenerateEducationalRoadmap)
 }
-
