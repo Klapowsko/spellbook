@@ -34,7 +34,7 @@ func NewGeminiService(apiKey string) *GeminiService {
 // listAvailableModels lista os modelos disponíveis na API
 func (s *GeminiService) listAvailableModels() ([]string, error) {
 	url := fmt.Sprintf("%s/models?key=%s", s.BaseURL, s.APIKey)
-	
+
 	resp, err := s.HTTPClient.Get(url)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (s *GeminiService) GenerateRoadmap(topic string) (*models.Roadmap, error) {
 
 	// Lista de modelos para tentar em ordem (fallback)
 	modelsToTry := make([]string, 0)
-	
+
 	// Adicionar modelos disponíveis primeiro
 	for _, model := range availableModels {
 		modelsToTry = append(modelsToTry, model)
@@ -282,7 +282,7 @@ func (s *GeminiService) GenerateTopics(subject string, count int) (*models.Topic
 
 	modelsToTry := make([]string, 0)
 	seen := make(map[string]bool)
-	
+
 	for _, model := range availableModels {
 		modelsToTry = append(modelsToTry, model)
 		seen[model] = true
@@ -367,3 +367,137 @@ IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto a
 	return nil, fmt.Errorf("erro ao gerar tópicos: nenhum modelo disponível funcionou")
 }
 
+// GenerateEducationalRoadmap gera um roadmap educacional detalhado com livros, cursos, vídeos, artigos e projetos
+func (s *GeminiService) GenerateEducationalRoadmap(topic string) (*models.EducationalRoadmap, error) {
+	if topic == "" {
+		return nil, fmt.Errorf("tópico não pode ser vazio")
+	}
+
+	// Listar modelos disponíveis
+	availableModels, _ := s.listAvailableModels()
+
+	modelsToTry := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, model := range availableModels {
+		modelsToTry = append(modelsToTry, model)
+		seen[model] = true
+	}
+
+	fallbacks := []string{
+		"gemini-1.5-flash-latest",
+		"gemini-1.5-pro-latest",
+		"gemini-pro",
+		"gemini-1.5-flash",
+		"gemini-1.5-pro",
+	}
+
+	for _, model := range fallbacks {
+		if !seen[model] {
+			modelsToTry = append(modelsToTry, model)
+		}
+	}
+
+	// Prompt para gerar roadmap educacional
+	prompt := fmt.Sprintf(`Você é um especialista em criar roadmaps educacionais detalhados e estruturados.
+
+Crie um roadmap educacional completo e bem organizado sobre: "%s"
+
+O roadmap deve ser retornado APENAS como um JSON válido, sem markdown, sem texto adicional, seguindo EXATAMENTE esta estrutura:
+
+{
+  "topic": "%s",
+  "books": [
+    {
+      "title": "Nome do Livro",
+      "description": "Descrição do livro",
+      "author": "Nome do Autor",
+      "chapters": ["Capítulo 1", "Capítulo 2", "Capítulo 3"],
+      "url": "URL do livro (se disponível)"
+    }
+  ],
+  "courses": [
+    {
+      "title": "Nome do Curso",
+      "description": "Descrição do curso",
+      "duration": "Duração estimada",
+      "url": "URL do curso"
+    }
+  ],
+  "videos": [
+    {
+      "title": "Nome do Vídeo",
+      "description": "Descrição do vídeo",
+      "duration": "Duração do vídeo",
+      "url": "URL do vídeo"
+    }
+  ],
+  "articles": [
+    {
+      "title": "Nome do Artigo",
+      "description": "Descrição do artigo",
+      "url": "URL do artigo"
+    }
+  ],
+  "projects": [
+    {
+      "title": "Nome do Projeto",
+      "description": "Descrição do projeto lúdico para consolidar conhecimento",
+      "url": "URL de referência (se disponível)"
+    }
+  ]
+}
+
+Requisitos:
+- Inclua 3-5 livros relevantes com seus principais capítulos
+- Inclua 3-5 cursos online ou presenciais
+- Inclua 5-10 vídeos educacionais (YouTube, etc)
+- Inclua 5-10 artigos técnicos ou tutoriais
+- Inclua 3-5 projetos práticos e lúdicos para consolidar o conhecimento
+- Seja específico e prático nas descrições
+- Organize de forma progressiva (do básico ao avançado)
+- Retorne APENAS o JSON, sem explicações adicionais
+
+IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, topic, topic)
+
+	var lastError error
+
+	for _, modelName := range modelsToTry {
+		text, err := s.generateContent(modelName, prompt)
+		if err != nil {
+			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "quota") {
+				time.Sleep(30 * time.Second)
+				text, err = s.generateContent(modelName, prompt)
+				if err != nil {
+					lastError = err
+					continue
+				}
+			} else {
+				lastError = err
+				continue
+			}
+		}
+
+		jsonText := cleanJSONText(text)
+
+		var educationalRoadmap models.EducationalRoadmap
+		if err := json.Unmarshal([]byte(jsonText), &educationalRoadmap); err != nil {
+			lastError = fmt.Errorf("erro ao fazer parse do JSON: %v", err)
+			continue
+		}
+
+		// Validar estrutura básica
+		if educationalRoadmap.Topic == "" {
+			lastError = fmt.Errorf("resposta do Gemini não está no formato esperado")
+			continue
+		}
+
+		return &educationalRoadmap, nil
+	}
+
+	if lastError != nil {
+		return nil, fmt.Errorf("erro ao gerar roadmap educacional: %v", lastError)
+	}
+
+	return nil, fmt.Errorf("erro ao gerar roadmap educacional: nenhum modelo disponível funcionou")
+}

@@ -39,6 +39,14 @@ func (m *MockGeminiServiceTopics) GenerateTopics(subject string, count int) (*mo
 	return args.Get(0).(*models.TopicsResponse), args.Error(1)
 }
 
+func (m *MockGeminiServiceTopics) GenerateEducationalRoadmap(topic string) (*models.EducationalRoadmap, error) {
+	args := m.Called(topic)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.EducationalRoadmap), args.Error(1)
+}
+
 func TestTopicsHandler_GenerateTopics_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
