@@ -13,11 +13,12 @@ import (
 
 // App representa a aplicação e suas dependências
 type App struct {
-	Config         *config.Config
-	GeminiService  *services.GeminiService
-	RoadmapHandler *handlers.RoadmapHandler
-	TopicsHandler  *handlers.TopicsHandler
-	Router         *gin.Engine
+	Config            *config.Config
+	GeminiService     *services.GeminiService
+	RoadmapHandler    *handlers.RoadmapHandler
+	TopicsHandler     *handlers.TopicsHandler
+	KeyResultsHandler *handlers.KeyResultsHandler
+	Router            *gin.Engine
 }
 
 // NewApp cria e inicializa uma nova instância da aplicação
@@ -34,20 +35,22 @@ func NewApp() (*App, error) {
 	// Criar handlers
 	roadmapHandler := handlers.NewRoadmapHandler(geminiService)
 	topicsHandler := handlers.NewTopicsHandler(geminiService)
+	keyResultsHandler := handlers.NewKeyResultsHandler(geminiService)
 
 	// Configurar Gin
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
 	// Configurar rotas
-	routes.SetupRoutes(router, roadmapHandler, topicsHandler)
+	routes.SetupRoutes(router, roadmapHandler, topicsHandler, keyResultsHandler)
 
 	return &App{
-		Config:         cfg,
-		GeminiService:  geminiService,
-		RoadmapHandler: roadmapHandler,
-		TopicsHandler:  topicsHandler,
-		Router:         router,
+		Config:            cfg,
+		GeminiService:     geminiService,
+		RoadmapHandler:    roadmapHandler,
+		TopicsHandler:     topicsHandler,
+		KeyResultsHandler: keyResultsHandler,
+		Router:            router,
 	}, nil
 }
 

@@ -7,7 +7,7 @@ import (
 )
 
 // SetupRoutes configura todas as rotas da aplicação
-func SetupRoutes(router *gin.Engine, roadmapHandler *handlers.RoadmapHandler, topicsHandler *handlers.TopicsHandler) {
+func SetupRoutes(router *gin.Engine, roadmapHandler *handlers.RoadmapHandler, topicsHandler *handlers.TopicsHandler, keyResultsHandler *handlers.KeyResultsHandler) {
 	// Aplicar middleware global
 	router.Use(middleware.CORSMiddleware())
 
@@ -24,6 +24,7 @@ func SetupRoutes(router *gin.Engine, roadmapHandler *handlers.RoadmapHandler, to
 	{
 		api.POST("/roadmap", roadmapHandler.GenerateRoadmap)
 		api.POST("/topics", topicsHandler.GenerateTopics)
+		api.POST("/key-results", keyResultsHandler.GenerateKeyResults)
 		api.POST("/educational-roadmap", roadmapHandler.GenerateEducationalRoadmap)
 		api.POST("/educational-trail", roadmapHandler.GenerateEducationalTrail)
 	}

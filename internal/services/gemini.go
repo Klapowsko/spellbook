@@ -367,6 +367,114 @@ IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto a
 	return nil, fmt.Errorf("erro ao gerar tópicos: nenhum modelo disponível funcionou")
 }
 
+// GenerateKeyResults gera uma lista de Key Results mensuráveis para um objetivo OKR
+func (s *GeminiService) GenerateKeyResults(objective string, count int) (*models.KeyResultsResponse, error) {
+	if objective == "" {
+		return nil, fmt.Errorf("objetivo não pode ser vazio")
+	}
+
+	if count <= 0 {
+		count = 5 // Default para Key Results
+	}
+
+	// Listar modelos disponíveis
+	availableModels, _ := s.listAvailableModels()
+
+	modelsToTry := make([]string, 0)
+	seen := make(map[string]bool)
+
+	for _, model := range availableModels {
+		modelsToTry = append(modelsToTry, model)
+		seen[model] = true
+	}
+
+	fallbacks := []string{
+		"gemini-1.5-flash-latest",
+		"gemini-1.5-pro-latest",
+		"gemini-pro",
+		"gemini-1.5-flash",
+		"gemini-1.5-pro",
+	}
+
+	for _, model := range fallbacks {
+		if !seen[model] {
+			modelsToTry = append(modelsToTry, model)
+		}
+	}
+
+	// Prompt específico para gerar Key Results mensuráveis para OKRs
+	prompt := fmt.Sprintf(`Você é um especialista em OKRs (Objectives and Key Results).
+
+Gere uma lista de %d Key Results mensuráveis e específicos para o seguinte objetivo: "%s"
+
+Key Results devem ser:
+- Mensuráveis (com métricas claras)
+- Específicos e acionáveis
+- Alinhados com o objetivo
+- Focados em resultados, não apenas em atividades
+- Realistas e alcançáveis
+
+A resposta deve ser APENAS um JSON válido, sem markdown, sem texto adicional, seguindo EXATAMENTE esta estrutura:
+
+{
+  "objective": "%s",
+  "key_results": [
+    "Key Result 1",
+    "Key Result 2",
+    "Key Result 3"
+  ]
+}
+
+Requisitos:
+- Cada Key Result deve ser uma frase clara e mensurável
+- Use métricas específicas quando possível (números, percentuais, etc.)
+- Foque em resultados que demonstrem progresso em direção ao objetivo
+- Seja conciso mas específico
+- Retorne APENAS o JSON, sem explicações adicionais
+
+IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, count, objective, objective)
+
+	var lastError error
+
+	for _, modelName := range modelsToTry {
+		text, err := s.generateContent(modelName, prompt)
+		if err != nil {
+			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "quota") {
+				time.Sleep(30 * time.Second)
+				text, err = s.generateContent(modelName, prompt)
+				if err != nil {
+					lastError = err
+					continue
+				}
+			} else {
+				lastError = err
+				continue
+			}
+		}
+
+		jsonText := cleanJSONText(text)
+
+		var keyResultsResp models.KeyResultsResponse
+		if err := json.Unmarshal([]byte(jsonText), &keyResultsResp); err != nil {
+			lastError = fmt.Errorf("erro ao fazer parse do JSON: %v", err)
+			continue
+		}
+
+		if keyResultsResp.Objective == "" || len(keyResultsResp.KeyResults) == 0 {
+			lastError = fmt.Errorf("resposta do Gemini não está no formato esperado")
+			continue
+		}
+
+		return &keyResultsResp, nil
+	}
+
+	if lastError != nil {
+		return nil, fmt.Errorf("erro ao gerar Key Results: %v", lastError)
+	}
+
+	return nil, fmt.Errorf("erro ao gerar Key Results: nenhum modelo disponível funcionou")
+}
+
 // GenerateEducationalRoadmap gera um roadmap educacional detalhado com livros, cursos, vídeos, artigos e projetos
 func (s *GeminiService) GenerateEducationalRoadmap(topic string) (*models.EducationalRoadmap, error) {
 	if topic == "" {
