@@ -154,7 +154,7 @@ func cleanJSONText(text string) string {
 }
 
 // GenerateRoadmap gera um roadmap de estudo usando o Gemini
-func (s *GeminiService) GenerateRoadmap(topic string, availableDays *int) (*models.Roadmap, error) {
+func (s *GeminiService) GenerateRoadmap(topic string, availableDays *int, exactItemCount *int) (*models.Roadmap, error) {
 	if topic == "" {
 		return nil, fmt.Errorf("tópico não pode ser vazio")
 	}
@@ -190,42 +190,53 @@ func (s *GeminiService) GenerateRoadmap(topic string, availableDays *int) (*mode
 		}
 	}
 
-	// Determinar número de categorias e itens baseado em availableDays
+	// Determinar número de categorias e itens baseado em availableDays e exactItemCount
 	numCategories := "4-6"
 	itemsPerCategory := "5-10"
 	timeContext := ""
-	estimatedTotalItems := 30 // Valor padrão
+	targetItemCount := 30      // Número exato de itens a serem gerados
+	daysAvailable := 30        // Para uso no timeContext
 	
-	if availableDays != nil && *availableDays > 0 {
-		// Calcular proporção de itens baseado no tempo disponível
-		// Aproximadamente 1 item por dia, mas permitindo variação natural
-		estimatedTotalItems = *availableDays
-		
-		if *availableDays < 14 {
-			// Tempo curto: focar em essencial
-			numCategories = "3-4"
-			itemsPerCategory = "3-5"
-			timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ser concluído em EXATAMENTE %d dias.\n\nREGRAS OBRIGATÓRIAS:\n- Crie NO MÁXIMO %d itens no total (não exceda este número)\n- Distribua em 3-4 categorias\n- Cada categoria deve ter entre 3-5 itens\n- Se você criar mais de %d itens, o roadmap será inválido\n- Priorize apenas o ESSENCIAL e mais importante", *availableDays, estimatedTotalItems, estimatedTotalItems)
-		} else if *availableDays <= 30 {
-			// Tempo médio: estrutura balanceada
-			numCategories = "4-6"
-			itemsPerCategory = "5-8"
-			timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ser concluído em EXATAMENTE %d dias.\n\nREGRAS OBRIGATÓRIAS:\n- Crie NO MÁXIMO %d itens no total (não exceda este número)\n- Distribua em 4-6 categorias\n- Cada categoria deve ter entre 5-8 itens\n- Se você criar mais de %d itens, o roadmap será inválido\n- Mantenha uma estrutura balanceada e prática", *availableDays, estimatedTotalItems, estimatedTotalItems)
-		} else if *availableDays <= 60 {
-			// Tempo médio-longo: estrutura mais completa
-			numCategories = "5-7"
-			itemsPerCategory = "6-10"
-			timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ser concluído em EXATAMENTE %d dias.\n\nREGRAS OBRIGATÓRIAS:\n- Crie NO MÁXIMO %d itens no total (não exceda este número)\n- Distribua em 5-7 categorias\n- Cada categoria deve ter entre 6-10 itens\n- Se você criar mais de %d itens, o roadmap será inválido\n- Você tem tempo suficiente para uma estrutura mais completa", *availableDays, estimatedTotalItems, estimatedTotalItems)
+	// Prioridade: usar exactItemCount se disponível, senão calcular baseado em availableDays
+	if exactItemCount != nil && *exactItemCount > 0 {
+		targetItemCount = *exactItemCount
+		if availableDays != nil && *availableDays > 0 {
+			daysAvailable = *availableDays
 		} else {
-			// Tempo longo: estrutura extensa mas organizada
-			// Calcular estimativas proporcionais ao tempo
-			estimatedCategories := 6 + (*availableDays-60)/15 // Aproximadamente 1 categoria a cada 15 dias extras
-			itemsPerCat := estimatedTotalItems / estimatedCategories
-			
-			numCategories = fmt.Sprintf("%d-%d", estimatedCategories-1, estimatedCategories+2)
-			itemsPerCategory = fmt.Sprintf("%d-%d", itemsPerCat-2, itemsPerCat+3)
-			timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ser concluído em EXATAMENTE %d dias.\n\nREGRAS OBRIGATÓRIAS:\n- Crie NO MÁXIMO %d itens no total (não exceda este número)\n- Distribua em %s categorias\n- Cada categoria deve ter entre %s itens\n- Se você criar mais de %d itens, o roadmap será inválido\n- A quantidade deve ser proporcional ao tempo disponível", *availableDays, estimatedTotalItems, numCategories, itemsPerCategory, estimatedTotalItems)
+			daysAvailable = *exactItemCount
 		}
+	} else if availableDays != nil && *availableDays > 0 {
+		// Calcular proporção de itens baseado no tempo disponível
+		// Aproximadamente 1 item por dia
+		targetItemCount = *availableDays
+		daysAvailable = *availableDays
+	}
+	
+	// Calcular número de categorias baseado no número de itens
+	if targetItemCount < 14 {
+		// Tempo curto: focar em essencial
+		numCategories = "3-4"
+		itemsPerCategory = "3-5"
+		timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ter EXATAMENTE %d itens (não mais, não menos).\n\nREGRAS OBRIGATÓRIAS:\n- Crie EXATAMENTE %d itens no total\n- Tempo disponível: %d dias (1 item por dia)\n- Distribua em 3-4 categorias\n- Cada categoria deve ter entre 3-5 itens\n- Se você criar mais ou menos de %d itens, o roadmap será REJEITADO\n- Priorize apenas o ESSENCIAL e mais importante", targetItemCount, targetItemCount, daysAvailable, targetItemCount)
+	} else if targetItemCount <= 30 {
+		// Tempo médio: estrutura balanceada
+		numCategories = "4-6"
+		itemsPerCategory = "5-8"
+		timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ter EXATAMENTE %d itens (não mais, não menos).\n\nREGRAS OBRIGATÓRIAS:\n- Crie EXATAMENTE %d itens no total\n- Tempo disponível: %d dias (1 item por dia)\n- Distribua em 4-6 categorias\n- Cada categoria deve ter entre 5-8 itens\n- Se você criar mais ou menos de %d itens, o roadmap será REJEITADO\n- Mantenha uma estrutura balanceada e prática", targetItemCount, targetItemCount, daysAvailable, targetItemCount)
+	} else if targetItemCount <= 60 {
+		// Tempo médio-longo: estrutura mais completa
+		numCategories = "5-7"
+		itemsPerCategory = "6-10"
+		timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ter EXATAMENTE %d itens (não mais, não menos).\n\nREGRAS OBRIGATÓRIAS:\n- Crie EXATAMENTE %d itens no total\n- Tempo disponível: %d dias (1 item por dia)\n- Distribua em 5-7 categorias\n- Cada categoria deve ter entre 6-10 itens\n- Se você criar mais ou menos de %d itens, o roadmap será REJEITADO\n- Você tem tempo suficiente para uma estrutura mais completa", targetItemCount, targetItemCount, daysAvailable, targetItemCount)
+	} else {
+		// Tempo longo: estrutura extensa mas organizada
+		// Calcular estimativas proporcionais ao número de itens
+		estimatedCategories := 6 + (targetItemCount-60)/15 // Aproximadamente 1 categoria a cada 15 itens extras
+		itemsPerCat := targetItemCount / estimatedCategories
+		
+		numCategories = fmt.Sprintf("%d-%d", estimatedCategories-1, estimatedCategories+2)
+		itemsPerCategory = fmt.Sprintf("%d-%d", itemsPerCat-2, itemsPerCat+3)
+		timeContext = fmt.Sprintf("\n\n⏰ PRAZO CRÍTICO: Este roadmap DEVE ter EXATAMENTE %d itens (não mais, não menos).\n\nREGRAS OBRIGATÓRIAS:\n- Crie EXATAMENTE %d itens no total\n- Tempo disponível: %d dias (1 item por dia)\n- Distribua em %s categorias\n- Cada categoria deve ter entre %s itens\n- Se você criar mais ou menos de %d itens, o roadmap será REJEITADO\n- A quantidade deve ser proporcional ao tempo disponível", targetItemCount, targetItemCount, daysAvailable, numCategories, itemsPerCategory, targetItemCount)
 	}
 
 	// Prompt para gerar o roadmap
@@ -251,14 +262,14 @@ O roadmap deve ser retornado APENAS como um JSON válido, sem markdown, sem text
 Requisitos OBRIGATÓRIOS:
 - Crie EXATAMENTE %s categorias principais (não mais, não menos)
 - Cada categoria deve ter EXATAMENTE entre %s itens (respeite este intervalo)
-- O TOTAL DE ITENS em todo o roadmap NÃO DEVE EXCEDER %d itens
+- O TOTAL DE ITENS em todo o roadmap DEVE SER EXATAMENTE %d itens (não mais, não menos)
 - Os itens devem ser progressivos (do básico ao avançado)
 - Seja específico e prático nos títulos
 - Organize de forma lógica e sequencial
 
-VALIDAÇÃO: Se o roadmap tiver mais de %d itens totais, ele será rejeitado e você terá que gerar novamente.
+VALIDAÇÃO CRÍTICA: Se o roadmap tiver mais ou menos de %d itens totais, ele será REJEITADO e você terá que gerar novamente. O número exato de itens é %d.
 
-Retorne APENAS o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, topic, timeContext, topic, numCategories, itemsPerCategory, estimatedTotalItems, estimatedTotalItems)
+Retorne APENAS o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, topic, timeContext, topic, numCategories, itemsPerCategory, targetItemCount, targetItemCount, targetItemCount)
 
 	var lastError error
 
@@ -303,17 +314,27 @@ Retorne APENAS o JSON válido, sem markdown code blocks, sem texto antes ou depo
 			totalItems += len(category.Items)
 		}
 
-		// Se availableDays foi fornecido, validar se o número de itens está dentro do esperado
-		if availableDays != nil && *availableDays > 0 {
-			maxExpectedItems := *availableDays + 5 // Permitir 5 itens a mais como margem
-			if totalItems > maxExpectedItems {
-				lastError = fmt.Errorf("roadmap gerado com %d itens, mas o limite é %d itens (tempo disponível: %d dias). Tentando novamente...", totalItems, maxExpectedItems, *availableDays)
-				// Tentar novamente com o mesmo modelo, mas com prompt mais restritivo
+		// Validação rigorosa: usar exactItemCount se disponível, senão availableDays
+		if exactItemCount != nil && *exactItemCount > 0 {
+			// Tolerância de apenas ±1 item para exactItemCount
+			if totalItems != *exactItemCount && totalItems != *exactItemCount+1 && totalItems != *exactItemCount-1 {
+				lastError = fmt.Errorf("roadmap gerado com %d itens, mas o esperado é EXATAMENTE %d itens. Rejeitando e tentando novamente...", totalItems, *exactItemCount)
 				continue
 			}
 			// Log para debug
-			fmt.Printf("[DEBUG] Spellbook GenerateRoadmap - AvailableDays: %d, TotalItemsGenerated: %d, MaxExpected: %d\n", 
-				*availableDays, totalItems, maxExpectedItems)
+			fmt.Printf("[DEBUG] Spellbook GenerateRoadmap - ExactItemCount: %d, TotalItemsGenerated: %d\n", 
+				*exactItemCount, totalItems)
+		} else if availableDays != nil && *availableDays > 0 {
+			// Se não tiver exactItemCount, usar availableDays com tolerância de ±2 itens
+			maxExpectedItems := *availableDays + 2
+			minExpectedItems := *availableDays - 2
+			if totalItems > maxExpectedItems || totalItems < minExpectedItems {
+				lastError = fmt.Errorf("roadmap gerado com %d itens, mas o esperado é %d itens (tempo disponível: %d dias). Tentando novamente...", totalItems, *availableDays, *availableDays)
+				continue
+			}
+			// Log para debug
+			fmt.Printf("[DEBUG] Spellbook GenerateRoadmap - AvailableDays: %d, TotalItemsGenerated: %d, Expected: %d\n", 
+				*availableDays, totalItems, *availableDays)
 		}
 
 		return &roadmap, nil

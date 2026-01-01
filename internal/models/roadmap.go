@@ -23,5 +23,6 @@ type Roadmap struct {
 type RoadmapRequest struct {
 	Topic        string `json:"topic" binding:"required"`
 	AvailableDays *int  `json:"available_days,omitempty"`
+	ExactItemCount *int `json:"exact_item_count,omitempty"` // Número exato de itens a serem gerados
 }
 
