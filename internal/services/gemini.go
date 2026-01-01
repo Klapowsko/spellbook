@@ -673,13 +673,25 @@ Retorne APENAS JSON válido, sem markdown:
   ]
 }
 
-Regras:
+Regras IMPORTANTES:
 - 10-14 dias, 2-3 atividades por dia
 - Tipos: read_chapters, watch_video, read_article, take_course, do_project
 - Progressivo: básico → avançado → prática
 - Seja específico: "Ler capítulos 1-3" não "Ler livro"
 - Inclua progresso quando relevante
 - Projetos no final
+
+CRITÉRIOS PARA RECURSOS (LIVROS, CURSOS, VÍDEOS, ARTIGOS):
+- Use APENAS recursos amplamente conhecidos, estabelecidos e reconhecidos na área
+- Priorize recursos clássicos, best-sellers e materiais amplamente utilizados
+- Evite recursos muito recentes, específicos ou obscuros que podem não existir
+- Para livros: use apenas livros famosos, best-sellers ou clássicos da área (ex: "Clean Code", "Design Patterns", "The Pragmatic Programmer")
+- Para cursos: use plataformas conhecidas (Coursera, edX, Udemy) e cursos populares/verificados
+- Para vídeos: use canais conhecidos e vídeos populares (YouTube, com muitos views)
+- Para artigos: use artigos de sites conhecidos e estabelecidos
+- Se não tiver certeza se um recurso existe, prefira recursos genéricos ou bem conhecidos
+- URLs devem ser válidas e acessíveis - evite URLs quebradas ou inexistentes
+- Se não souber uma URL específica, deixe o campo "url" vazio ao invés de inventar uma
 
 APENAS JSON, sem markdown.`, topic, topic)
 
