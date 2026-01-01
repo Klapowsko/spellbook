@@ -43,7 +43,7 @@ func (h *KeyResultsHandler) GenerateKeyResults(c *gin.Context) {
 		req.Count = 5
 	}
 
-	keyResults, err := h.GeminiService.GenerateKeyResults(req.Objective, req.Count)
+	keyResults, err := h.GeminiService.GenerateKeyResults(req.Objective, req.Count, req.CompletionDate)
 	if err != nil {
 		// Verificar se é erro de API key
 		if err.Error() == "GEMINI_API_KEY não configurada. Configure no arquivo .env ou variável de ambiente" {

@@ -38,7 +38,7 @@ func (h *RoadmapHandler) GenerateRoadmap(c *gin.Context) {
 		return
 	}
 
-	roadmap, err := h.GeminiService.GenerateRoadmap(req.Topic)
+	roadmap, err := h.GeminiService.GenerateRoadmap(req.Topic, req.AvailableDays)
 	if err != nil {
 		// Verificar se é erro de API key
 		if err.Error() == "GEMINI_API_KEY não configurada. Configure no arquivo .env ou variável de ambiente" {
@@ -112,7 +112,7 @@ func (h *RoadmapHandler) GenerateEducationalTrail(c *gin.Context) {
 		return
 	}
 
-	trail, err := h.GeminiService.GenerateEducationalTrail(req.Topic)
+	trail, err := h.GeminiService.GenerateEducationalTrail(req.Topic, req.AvailableDays)
 	if err != nil {
 		if err.Error() == "GEMINI_API_KEY não configurada. Configure no arquivo .env ou variável de ambiente" {
 			c.JSON(http.StatusInternalServerError, gin.H{

@@ -21,6 +21,7 @@ type Roadmap struct {
 
 // RoadmapRequest representa a requisição para gerar um roadmap
 type RoadmapRequest struct {
-	Topic string `json:"topic" binding:"required"`
+	Topic        string `json:"topic" binding:"required"`
+	AvailableDays *int  `json:"available_days,omitempty"`
 }
 

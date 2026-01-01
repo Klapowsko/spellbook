@@ -154,7 +154,7 @@ func cleanJSONText(text string) string {
 }
 
 // GenerateRoadmap gera um roadmap de estudo usando o Gemini
-func (s *GeminiService) GenerateRoadmap(topic string) (*models.Roadmap, error) {
+func (s *GeminiService) GenerateRoadmap(topic string, availableDays *int) (*models.Roadmap, error) {
 	if topic == "" {
 		return nil, fmt.Errorf("tópico não pode ser vazio")
 	}
@@ -190,10 +190,34 @@ func (s *GeminiService) GenerateRoadmap(topic string) (*models.Roadmap, error) {
 		}
 	}
 
+	// Determinar número de categorias e itens baseado em availableDays
+	numCategories := "4-6"
+	itemsPerCategory := "5-10"
+	timeContext := ""
+	
+	if availableDays != nil && *availableDays > 0 {
+		if *availableDays < 14 {
+			// Tempo curto: focar em essencial
+			numCategories = "3-4"
+			itemsPerCategory = "3-5"
+			timeContext = fmt.Sprintf("\n\n⏰ PRAZO LIMITADO: Este roadmap deve ser concluído em %d dias. Foque em categorias e itens ESSENCIAIS. Priorize o mais importante e prático. Menos categorias (3-4) e menos itens por categoria (3-5).", *availableDays)
+		} else if *availableDays <= 30 {
+			// Tempo médio: estrutura balanceada
+			numCategories = "4-6"
+			itemsPerCategory = "5-8"
+			timeContext = fmt.Sprintf("\n\n⏰ PRAZO: Este roadmap deve ser concluído em %d dias. Mantenha uma estrutura balanceada com 4-6 categorias e 5-8 itens por categoria.", *availableDays)
+		} else {
+			// Tempo longo: conteúdo mais aprofundado
+			numCategories = "5-7"
+			itemsPerCategory = "7-10"
+			timeContext = fmt.Sprintf("\n\n⏰ PRAZO: Este roadmap deve ser concluído em %d dias. Você tem tempo suficiente para conteúdo mais aprofundado. Pode incluir 5-7 categorias e 7-10 itens por categoria.", *availableDays)
+		}
+	}
+
 	// Prompt para gerar o roadmap
 	prompt := fmt.Sprintf(`Você é um especialista em criar roadmaps de estudo detalhados e estruturados.
 
-Crie um roadmap completo e bem organizado sobre: "%s"
+Crie um roadmap completo e bem organizado sobre: "%s"%s
 
 O roadmap deve ser retornado APENAS como um JSON válido, sem markdown, sem texto adicional, seguindo EXATAMENTE esta estrutura:
 
@@ -211,14 +235,14 @@ O roadmap deve ser retornado APENAS como um JSON válido, sem markdown, sem text
 }
 
 Requisitos:
-- Crie pelo menos 4-6 categorias principais
-- Cada categoria deve ter entre 5-10 itens
+- Crie %s categorias principais
+- Cada categoria deve ter entre %s itens
 - Os itens devem ser progressivos (do básico ao avançado)
 - Seja específico e prático nos títulos
 - Organize de forma lógica e sequencial
 - Retorne APENAS o JSON, sem explicações adicionais
 
-IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, topic, topic)
+IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, topic, timeContext, topic, numCategories, itemsPerCategory)
 
 	var lastError error
 
@@ -367,8 +391,34 @@ IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto a
 	return nil, fmt.Errorf("erro ao gerar tópicos: nenhum modelo disponível funcionou")
 }
 
+// getTimeDistributionInstructions retorna instruções sobre como distribuir Key Results no tempo
+func getTimeDistributionInstructions(completionDate *string) string {
+	if completionDate == nil || *completionDate == "" {
+		return ""
+	}
+
+	completionTime, err := time.Parse("2006-01-02", *completionDate)
+	if err != nil {
+		return ""
+	}
+
+	now := time.Now()
+	daysRemaining := int(completionTime.Sub(now).Hours() / 24)
+	monthsRemaining := daysRemaining / 30
+
+	if daysRemaining < 0 {
+		return "Distribuição temporal: Todos os Key Results devem ser realizáveis imediatamente, priorizando resultados rápidos."
+	} else if monthsRemaining < 3 {
+		return "Distribuição temporal: Todos os Key Results devem ser realizáveis em curto prazo (semanas). Priorize resultados rápidos e simples."
+	} else if monthsRemaining <= 6 {
+		return fmt.Sprintf("Distribuição temporal: Distribua os Key Results ao longo de %d meses - alguns no primeiro mês (início), outros no meio do período, e alguns no final. Complexidade moderada.", monthsRemaining)
+	} else {
+		return fmt.Sprintf("Distribuição temporal: Distribua os Key Results progressivamente ao longo de %d meses - Key Results iniciais (primeiro mês), intermediários (meio do período), e finais (último mês). Pode incluir Key Results mais complexos e ambiciosos.", monthsRemaining)
+	}
+}
+
 // GenerateKeyResults gera uma lista de Key Results mensuráveis para um objetivo OKR
-func (s *GeminiService) GenerateKeyResults(objective string, count int) (*models.KeyResultsResponse, error) {
+func (s *GeminiService) GenerateKeyResults(objective string, count int, completionDate *string) (*models.KeyResultsResponse, error) {
 	if objective == "" {
 		return nil, fmt.Errorf("objetivo não pode ser vazio")
 	}
@@ -402,10 +452,31 @@ func (s *GeminiService) GenerateKeyResults(objective string, count int) (*models
 		}
 	}
 
+	// Calcular informações sobre o prazo
+	var timeContext string
+	if completionDate != nil && *completionDate != "" {
+		completionTime, err := time.Parse("2006-01-02", *completionDate)
+		if err == nil {
+			now := time.Now()
+			daysRemaining := int(completionTime.Sub(now).Hours() / 24)
+			monthsRemaining := daysRemaining / 30
+			
+			if daysRemaining < 0 {
+				timeContext = fmt.Sprintf("\n\n⚠️ ATENÇÃO: A data de conclusão (%s) já passou. Ajuste os Key Results para serem realizáveis no menor tempo possível.", *completionDate)
+			} else if monthsRemaining < 3 {
+				timeContext = fmt.Sprintf("\n\n⏰ PRAZO: Este OKR deve ser concluído em %d dias (menos de 3 meses). Gere Key Results SIMPLES, DIRETOS e REALIZÁVEIS no curto prazo. Priorize resultados rápidos e de baixa complexidade.", daysRemaining)
+			} else if monthsRemaining <= 6 {
+				timeContext = fmt.Sprintf("\n\n⏰ PRAZO: Este OKR deve ser concluído em %d dias (aproximadamente %d meses). Distribua os Key Results ao longo do tempo: alguns no primeiro mês, outros no meio do período, e alguns no final. Complexidade MODERADA.", daysRemaining, monthsRemaining)
+			} else {
+				timeContext = fmt.Sprintf("\n\n⏰ PRAZO: Este OKR deve ser concluído em %d dias (aproximadamente %d meses). Distribua os Key Results progressivamente: Key Results iniciais (primeiro mês), intermediários (meio do período), e finais (último mês). Pode incluir Key Results mais complexos e ambiciosos.", daysRemaining, monthsRemaining)
+			}
+		}
+	}
+
 	// Prompt específico para gerar Key Results mensuráveis para OKRs
 	prompt := fmt.Sprintf(`Você é um especialista em OKRs (Objectives and Key Results).
 
-Gere uma lista de %d Key Results mensuráveis e específicos para o seguinte objetivo: "%s"
+Gere uma lista de %d Key Results mensuráveis e específicos para o seguinte objetivo: "%s"%s
 
 Key Results devem ser:
 - Mensuráveis (com métricas claras)
@@ -413,6 +484,8 @@ Key Results devem ser:
 - Alinhados com o objetivo
 - Focados em resultados, não apenas em atividades
 - Realistas e alcançáveis
+
+%s
 
 A resposta deve ser APENAS um JSON válido, sem markdown, sem texto adicional, seguindo EXATAMENTE esta estrutura:
 
@@ -432,7 +505,7 @@ Requisitos:
 - Seja conciso mas específico
 - Retorne APENAS o JSON, sem explicações adicionais
 
-IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, count, objective, objective)
+IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto antes ou depois.`, count, objective, timeContext, getTimeDistributionInstructions(completionDate), objective)
 
 	var lastError error
 
@@ -611,7 +684,7 @@ IMPORTANTE: Retorne apenas o JSON válido, sem markdown code blocks, sem texto a
 }
 
 // GenerateEducationalTrail gera uma trilha educacional estruturada em dias/etapas
-func (s *GeminiService) GenerateEducationalTrail(topic string) (*models.EducationalTrail, error) {
+func (s *GeminiService) GenerateEducationalTrail(topic string, availableDays *int) (*models.EducationalTrail, error) {
 	if topic == "" {
 		return nil, fmt.Errorf("tópico não pode ser vazio")
 	}
@@ -641,14 +714,37 @@ func (s *GeminiService) GenerateEducationalTrail(topic string) (*models.Educatio
 		}
 	}
 
+	// Determinar dias totais e atividades por dia baseado em availableDays
+	totalDays := 12
+	activitiesPerDay := "2-3"
+	timeContext := ""
+	
+	if availableDays != nil && *availableDays > 0 {
+		totalDays = *availableDays
+		
+		if totalDays < 7 {
+			// Tempo curto: focar em essencial, menos atividades
+			activitiesPerDay = "1-2"
+			timeContext = fmt.Sprintf("\n\n⏰ PRAZO LIMITADO: Esta trilha deve ser concluída em %d dias. Foque em conteúdo ESSENCIAL e DIRETO. Priorize atividades rápidas e práticas. Menos atividades por dia (1-2), mas bem focadas.", totalDays)
+		} else if totalDays <= 14 {
+			// Tempo médio: estrutura balanceada
+			activitiesPerDay = "2-3"
+			timeContext = fmt.Sprintf("\n\n⏰ PRAZO: Esta trilha deve ser concluída em %d dias. Mantenha um ritmo balanceado com 2-3 atividades por dia.", totalDays)
+		} else {
+			// Tempo longo: conteúdo mais aprofundado
+			activitiesPerDay = "3-4"
+			timeContext = fmt.Sprintf("\n\n⏰ PRAZO: Esta trilha deve ser concluída em %d dias. Você tem tempo suficiente para conteúdo mais aprofundado. Pode incluir 3-4 atividades por dia e materiais mais extensos.", totalDays)
+		}
+	}
+
 	// Prompt para gerar trilha educacional estruturada (otimizado para ser mais rápido)
-	prompt := fmt.Sprintf(`Crie uma trilha educacional de 10-14 dias sobre: "%s"
+	prompt := fmt.Sprintf(`Crie uma trilha educacional de %d dias sobre: "%s"%s
 
 Retorne APENAS JSON válido, sem markdown:
 
 {
   "topic": "%s",
-  "total_days": 12,
+  "total_days": %d,
   "description": "Trilha de aprendizado progressiva",
   "resources": {
     "recurso_1": {"title": "Nome", "description": "Desc", "author": "Autor", "chapters": ["Cap 1"], "url": ""},
@@ -674,12 +770,14 @@ Retorne APENAS JSON válido, sem markdown:
 }
 
 Regras IMPORTANTES:
-- 10-14 dias, 2-3 atividades por dia
+- EXATAMENTE %d dias, %s atividades por dia
+- O campo "total_days" no JSON DEVE ser %d
 - Tipos: read_chapters, watch_video, read_article, take_course, do_project
 - Progressivo: básico → avançado → prática
 - Seja específico: "Ler capítulos 1-3" não "Ler livro"
 - Inclua progresso quando relevante
 - Projetos no final
+- Distribua o conteúdo proporcionalmente ao longo dos %d dias
 
 CRITÉRIOS PARA RECURSOS (LIVROS, CURSOS, VÍDEOS, ARTIGOS):
 - Use APENAS recursos amplamente conhecidos, estabelecidos e reconhecidos na área
@@ -693,7 +791,7 @@ CRITÉRIOS PARA RECURSOS (LIVROS, CURSOS, VÍDEOS, ARTIGOS):
 - URLs devem ser válidas e acessíveis - evite URLs quebradas ou inexistentes
 - Se não souber uma URL específica, deixe o campo "url" vazio ao invés de inventar uma
 
-APENAS JSON, sem markdown.`, topic, topic)
+APENAS JSON, sem markdown.`, totalDays, topic, timeContext, topic, totalDays, activitiesPerDay, totalDays, totalDays)
 
 	var lastError error
 

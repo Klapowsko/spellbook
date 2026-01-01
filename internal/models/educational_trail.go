@@ -31,6 +31,7 @@ type EducationalTrail struct {
 
 // EducationalTrailRequest representa a requisição para gerar uma trilha educacional
 type EducationalTrailRequest struct {
-	Topic string `json:"topic" binding:"required"`
+	Topic        string `json:"topic" binding:"required"`
+	AvailableDays *int  `json:"available_days,omitempty"`
 }
 
